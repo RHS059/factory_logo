@@ -84,3 +84,8 @@ noscript img { width: 100%; height: 100%; object-fit: cover; }
 
 
 
+/* The opening camera pan finishes before the text appears. */
+.factory-hud { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .factory-hud { opacity: 1; } }
+
+

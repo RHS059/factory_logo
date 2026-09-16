@@ -56,3 +56,9 @@ Warm sunset light, cool blue fill light, and reflections affect only the logo. T
 Download assets/factory-logo.glb for the standalone model. The site builds the same geometry from assets/logo-contours.json through logo-geometry.js.
 
 Small independent grass tufts surround the logo base. Tapered blades use the meadow colors and bend gently in the wind. Their roots stay fixed. They follow camera parallax and respect reduced motion and the grass debug toggle.
+
+## Opening sequence
+
+On load, the view starts to the left with only the landscape visible. After 0.65 seconds, an off-axis camera pan moves to the neutral composition over 3.4 seconds. The logo enters the view during this pan. The text card then fades in over 1.1 seconds. Mirrored side extensions keep the scene filled. Pointer movement starts after the pan.
+
+The sequence pauses when the tab is hidden. Reduced motion, debug mode, and fixed-time snapshots show the neutral view immediately. For an opening snapshot, add ?intro=0&t=0; intro gives seconds into the sequence.

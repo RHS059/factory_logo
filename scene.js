@@ -6,6 +6,7 @@ const status=document.querySelector('#status');
 const params=new URLSearchParams(location.search);
 const debug=params.has('debug');
 const still=params.has('t')?Math.max(0,Number(params.get('t'))||0):null;
+const introSample=params.has('intro')?Math.max(0,Number(params.get('intro'))||0):null;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)');
 const pointer=new THREE.Vector2();
 const state={animate:!reduced.matches,clouds:true,grass:true,offset:0};
@@ -32,6 +33,10 @@ async function main(){
   camera.position.set(0,4,10);
   camera.lookAt(0,24,-90);
   camera.updateMatrixWorld();
+
+
+
+  const hud=document.querySelector('.factory-hud');
   const reference=camera.clone();
   reference.updateMatrixWorld();
   const projector=new THREE.Matrix4().multiplyMatrices(reference.projectionMatrix,reference.matrixWorldInverse);
@@ -40,6 +45,7 @@ async function main(){
   const textures=await Promise.all(names.map(async name=>{
     const t=await loader.loadAsync('./assets/'+name+'.png');
     t.colorSpace=THREE.SRGBColorSpace;
+    t.wrapS=THREE.MirroredRepeatWrapping;
     t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
     return t;
   }));
@@ -92,11 +98,11 @@ async function main(){
     return reference.position.clone().addScaledVector(ray,(z-reference.position.z)/ray.z);
   }
   function layerGeometry(z,scaleY=1,offsetY=0){
-    const geometry=new THREE.PlaneGeometry(1,1,192,64);
+    const geometry=new THREE.PlaneGeometry(1,1,512,64);
     const p=geometry.attributes.position,uv=geometry.attributes.uv;
     for(let i=0;i<p.count;i++){
-      // Four-percent overscan prevents exposed edges during bounded parallax.
-      const u=uv.getX(i)*1.08-.04,v=uv.getY(i)*1.08-.04;
+      // Mirrored side extensions fill the opening camera pan.
+      const u=uv.getX(i)*5.-2.,v=uv.getY(i)*1.08-.04;
       uv.setXY(i,u,v);const world=onDepth(u,v*scaleY+offsetY,z);p.setXYZ(i,world.x,world.y,world.z);
     }
     geometry.computeBoundingSphere();return geometry;
@@ -134,13 +140,13 @@ async function main(){
       fragmentShader:`varying vec2 vUv;uniform sampler2D frameA,frameB;
         uniform float uTime,top,phase,wind;
         void main(){
-          vec2 p=clamp(vUv,vec2(.001),vec2(.999));
+          vec2 p=vec2(1.-abs(mod(vUv.x,2.)-1.),clamp(vUv.y,.001,.999));
           p.x+=wind*sin(uTime*1.1+p.x*71.+p.y*95.+phase);
           float blend=.5-.5*cos(uTime*.75+phase+p.x*.7);
           vec4 a=texture2D(frameA,p),b=texture2D(frameB,p);
           float alpha=mix(a.a,b.a,blend);
           vec3 rgb=mix(a.rgb*a.a,b.rgb*b.a,blend)/max(alpha,.001);
-          float boundary=top-(top>.23?.045*smoothstep(0.,1.,vUv.x):0.)+.002*sin(vUv.x*31.)+.0018*sin(vUv.x*241.);
+          float boundary=top-(top>.23?.045*smoothstep(0.,1.,p.x):0.)+.002*sin(p.x*31.)+.0018*sin(p.x*241.);
           alpha*=1.-smoothstep(boundary-.004,boundary+.002,vUv.y);
           if(alpha<.01)discard;gl_FragColor=vec4(rgb,alpha);${colorOutput}
         }`
@@ -219,16 +225,24 @@ async function main(){
   });
   document.querySelector('#offset').addEventListener('input',event=>state.offset=Number(event.target.value));
   reduced.addEventListener('change',event=>{state.animate=!event.matches;document.querySelector('#motion').checked=state.animate;});
-  let previous=null,elapsed=0,lastStats=0;
+  let previous=null,elapsed=0,lastStats=0,introElapsed=0;
+  const ease=t=>t*t*t*(t*(t*6.-15.)+10.);
   function render(now){
     const dt=previous===null?0:Math.min((now-previous)/1000,.05);previous=now;
+    introElapsed=introSample??(introElapsed+dt);
+    const skipIntro=reduced.matches||((debug||still!==null)&&introSample===null);
+    const pan=skipIntro?1:THREE.MathUtils.clamp((introElapsed-.65)/3.4,0,1);
+    // Pan an off-axis camera frustum across the painted landscape.
+    camera.projectionMatrix.elements[8]=-2.35*(1-ease(pan));
+    camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+    hud.style.opacity=skipIntro?'1':String(ease(THREE.MathUtils.clamp((introElapsed-4.05)/1.1,0,1)));
     if(state.animate)elapsed+=dt;time.value=still??elapsed;
     clouds.rotation.y=time.value*.001;
     clouds.visible=state.clouds;grass.visible=frontGrass.visible=state.grass;
     tufts.visible=state.grass;
     const follow=1.-Math.exp(-5.*dt);
-    camera.position.x=THREE.MathUtils.lerp(camera.position.x,debug?state.offset:(reduced.matches?0:pointer.x*.32),follow);
-    camera.position.y=THREE.MathUtils.lerp(camera.position.y,4+(debug||reduced.matches?0:pointer.y*.14),follow);
+    camera.position.x=THREE.MathUtils.lerp(camera.position.x,debug?state.offset:(reduced.matches||pan<1?0:pointer.x*.32),follow);
+    camera.position.y=THREE.MathUtils.lerp(camera.position.y,4+(debug||reduced.matches||pan<1?0:pointer.y*.14),follow);
     renderer.clear();
     renderer.render(scene,camera);
     // The logo stands after the distant field but before the near grass.
@@ -252,6 +266,10 @@ main().catch(error=>{
   console.error('Landscape initialization failed:',error);
   host.querySelector('canvas')?.remove();
   status.textContent='The scene did not load. Reload the page with WebGL enabled.';status.hidden=false;
+  document.querySelector('.factory-hud').style.opacity='1';
 });
+
+
+
 
 
