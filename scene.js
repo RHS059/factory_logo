@@ -39,6 +39,22 @@ async function main(){
 
 
   const hud=document.querySelector('.factory-hud');
+  const investorLabel=document.querySelector('.factory-brand .hud-label');
+  const brandTitle=document.querySelector('.factory-brand h1');
+  const investors=['BLACKSTONE','KHOSLA','SEQUOIA','INSIGHT','EVANTIC','SOUND','NEA','MANTIS','CLEARLAKE'];
+  const textMeasure=document.createElement('canvas').getContext('2d');
+  function alignInvestor(){
+    if(!textMeasure)return;
+    const leftEdge=element=>{
+      const style=getComputedStyle(element);
+      textMeasure.font=style.fontWeight+' '+style.fontSize+' '+style.fontFamily;
+      return -textMeasure.measureText(element.textContent).actualBoundingBoxLeft;
+    };
+    investorLabel.style.transform='translateX('+(leftEdge(brandTitle)-leftEdge(investorLabel))+'px)';
+  }
+  document.fonts.ready.then(alignInvestor);
+  window.addEventListener('resize',alignInvestor);
+  alignInvestor();
   const reference=camera.clone();
   reference.updateMatrixWorld();
   const projector=new THREE.Matrix4().multiplyMatrices(reference.projectionMatrix,reference.matrixWorldInverse);
@@ -265,7 +281,7 @@ async function main(){
   });
   document.querySelector('#offset').addEventListener('input',event=>state.offset=Number(event.target.value));
   reduced.addEventListener('change',event=>{state.animate=!event.matches;document.querySelector('#motion').checked=state.animate;});
-  let previous=null,elapsed=0,lastStats=0,introElapsed=0;
+  let previous=null,elapsed=0,lastStats=0,introElapsed=0,investorElapsed=0;
   const ease=t=>t*t*t*(t*(t*6.-15.)+10.);
   function render(now){
     const dt=previous===null?0:Math.min((now-previous)/1000,.05);previous=now;
@@ -279,6 +295,15 @@ async function main(){
     camera.projectionMatrix.elements[8]=-2.35*(1-ease(pan));
     camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
     hud.style.opacity=skipIntro?'1':String(ease(THREE.MathUtils.clamp((introElapsed-4.05)/1.1,0,1)));
+    if(!reduced.matches&&state.animate&&still===null&&(skipIntro||introElapsed>=5.15))investorElapsed+=dt;
+    const labelTime=reduced.matches?0:investorElapsed;
+    const labelPhase=labelTime%4.2;
+    const labelIndex=(Math.floor(labelTime/4.2)+(labelPhase>=3.6?1:0))%investors.length;
+    const labelOpacity=labelPhase<3?1:labelPhase<3.6?1-ease((labelPhase-3)/.6):ease((labelPhase-3.6)/.6);
+    if(investorLabel.textContent!==investors[labelIndex]){
+      investorLabel.textContent=investors[labelIndex];alignInvestor();
+    }
+    investorLabel.style.opacity=String(labelOpacity);
     if(state.animate)elapsed+=dt;time.value=still??elapsed;
     clouds.rotation.y=time.value*.001;
     clouds.visible=state.clouds;grass.visible=frontGrass.visible=state.grass;
