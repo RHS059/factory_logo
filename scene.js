@@ -150,6 +150,47 @@ async function main(){
   });
   scene.add(grass);
   foregroundScene.add(frontGrass);
+  // Small rooted clumps overlap the metal at its ground contact points.
+  // They use world coordinates, so they follow the sculpture's parallax.
+  const tuftPositions=[],tuftColors=[],tuftUvs=[];
+  let seed=59;
+  const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+  const palette=['#344832','#52623a','#7b8545','#a1a35a'];
+  for(const [x,z,size] of [[-4.5,-28.1,.8],[-3.2,-27.8,1],[-1.5,-28.2,.75],[.2,-27.7,.9],[2,-27.9,1],[3.6,-28.1,.8]]){
+    for(let blade=0;blade<19;blade++){
+      const rootX=x+(random()-.5)*.8,rootZ=z+(random()-.5)*.35;
+      const height=(.65+random()*.9)*size,width=.045+random()*.07;
+      const lean=(random()-.5)*.9,phase=random()*6.28;
+      const color=new THREE.Color(palette[Math.floor(random()*palette.length)]);
+      const vertex=(t,side)=>{
+        tuftPositions.push(rootX+lean*t*t+side*width*(1-t),.4+height*t,rootZ);
+        const shade=.65+.35*t;
+        tuftColors.push(color.r*shade,color.g*shade,color.b*shade);
+        tuftUvs.push(phase,t);
+      };
+      for(let segment=0;segment<4;segment++){
+        const a=segment/4,b=(segment+1)/4;
+        vertex(a,-1);vertex(a,1);vertex(b,-1);
+        vertex(a,1);vertex(b,1);vertex(b,-1);
+      }
+    }
+  }
+  const tuftGeometry=new THREE.BufferGeometry();
+  tuftGeometry.setAttribute('position',new THREE.Float32BufferAttribute(tuftPositions,3));
+  tuftGeometry.setAttribute('color',new THREE.Float32BufferAttribute(tuftColors,3));
+  tuftGeometry.setAttribute('uv',new THREE.Float32BufferAttribute(tuftUvs,2));
+  const tufts=new THREE.Mesh(tuftGeometry,new THREE.ShaderMaterial({
+    uniforms:{uTime:time},vertexColors:true,side:THREE.DoubleSide,
+    transparent:true,depthTest:false,depthWrite:false,
+    vertexShader:`varying vec3 bladeColor;uniform float uTime;
+      void main(){bladeColor=color;vec3 p=position;
+        p.x+=.075*sin(uTime*1.1+uv.x)*uv.y*uv.y;
+        gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);}`,
+    fragmentShader:`varying vec3 bladeColor;
+      void main(){gl_FragColor=vec4(bladeColor,1.);${colorOutput}}`
+  }));
+  tufts.name='Grass tufts at logo base';tufts.renderOrder=6;
+  foregroundScene.add(tufts);
   // Keep painted colors unchanged. Only the metal uses physical lighting.
   for(const world of [scene,foregroundScene])world.traverse(object=>{
     if(object.material)object.material.toneMapped=false;
@@ -184,6 +225,7 @@ async function main(){
     if(state.animate)elapsed+=dt;time.value=still??elapsed;
     clouds.rotation.y=time.value*.001;
     clouds.visible=state.clouds;grass.visible=frontGrass.visible=state.grass;
+    tufts.visible=state.grass;
     const follow=1.-Math.exp(-5.*dt);
     camera.position.x=THREE.MathUtils.lerp(camera.position.x,debug?state.offset:(reduced.matches?0:pointer.x*.32),follow);
     camera.position.y=THREE.MathUtils.lerp(camera.position.y,4+(debug||reduced.matches?0:pointer.y*.14),follow);
@@ -211,4 +253,5 @@ main().catch(error=>{
   host.querySelector('canvas')?.remove();
   status.textContent='The scene did not load. Reload the page with WebGL enabled.';status.hidden=false;
 });
+
 
