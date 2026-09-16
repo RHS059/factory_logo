@@ -88,4 +88,11 @@ noscript img { width: 100%; height: 100%; object-fit: cover; }
 .factory-hud { opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .factory-hud { opacity: 1; } }
 
+#theme-toggle { position: fixed; z-index: 4; top: max(22px, env(safe-area-inset-top)); right: max(24px, env(safe-area-inset-right)); width: 46px; height: 46px; display: grid; place-items: center; padding: 10px; border: 1px solid #ffffff35; border-radius: 50%; background: #14142440; color: white; cursor: pointer; }
+#theme-toggle:hover { background: #14142480; }
+#theme-toggle:focus-visible { outline: 2px solid white; outline-offset: 4px; }
+#theme-toggle:disabled { opacity: .4; cursor: wait; }
+#theme-toggle svg { grid-area: 1 / 1; width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+#theme-toggle .sun-icon, #theme-toggle[aria-pressed=true] .moon-icon { display: none; }
+#theme-toggle[aria-pressed=true] .sun-icon { display: block; }
 

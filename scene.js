@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import {createChromeLogo} from './logo.js';
+import {createChromeLogo} from './logo.js?v=2';
 
 const host=document.querySelector('#landscape');
 const status=document.querySelector('#status');
@@ -11,6 +11,8 @@ const reduced=matchMedia('(prefers-reduced-motion: reduce)');
 const pointer=new THREE.Vector2();
 const state={animate:!reduced.matches,clouds:true,grass:true,offset:0};
 const time={value:0};
+const night={value:0};
+let nightTarget=0;
 const colorOutput=`
 #include <tonemapping_fragment>
 #include <colorspace_fragment>
@@ -50,15 +52,38 @@ async function main(){
     return t;
   }));
   const [cloudMap,terrainMap,fieldMap,grassA,grassB]=textures;
+  const nightTextures=await Promise.all(['clouds','terrain','far-field','meadow-a','meadow-b'].map(async name=>{
+    const t=await loader.loadAsync('./assets/'+name+'-night.png');
+    t.colorSpace=THREE.SRGBColorSpace;t.wrapS=THREE.MirroredRepeatWrapping;
+    t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());return t;
+  }));
+  const [nightClouds,nightTerrain,nightField,nightGrassA,nightGrassB]=nightTextures;
+  const modeButton=document.querySelector('#theme-toggle');
+  modeButton.disabled=false;
+  modeButton.addEventListener('click',()=>{
+    nightTarget=1-nightTarget;
+    modeButton.setAttribute('aria-pressed',String(Boolean(nightTarget)));
+    modeButton.setAttribute('aria-label',nightTarget?'Switch to day':'Switch to night');
+    modeButton.title=nightTarget?'Switch to day':'Switch to night';
+  });
 
   const sky=new THREE.Mesh(new THREE.SphereGeometry(1200,48,24),
-    new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,
+    new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,uniforms:{night},
       vertexShader:`varying vec3 direction; void main(){direction=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-      fragmentShader:`varying vec3 direction; void main(){
+      fragmentShader:`varying vec3 direction;uniform float night;
+      float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+      void main(){
         vec3 d=normalize(direction);float light=1.-smoothstep(-.7,.7,d.x);
         vec3 low=mix(vec3(.06,.10,.17),vec3(.20,.23,.29),light);
         vec3 high=mix(vec3(.03,.12,.23),vec3(.12,.46,.32),light);
-        gl_FragColor=vec4(mix(low,high,smoothstep(0.,.28,d.y)),1.);
+        vec3 day=mix(low,high,smoothstep(0.,.28,d.y));
+        vec3 nightSky=mix(vec3(.022,.012,.065),vec3(.002,.004,.019),smoothstep(0.,.6,d.y));
+        nightSky+=vec3(.002,.016,.024)*pow(max(0.,1.-abs(d.x+.4)),8.);
+        vec2 starUv=vec2(atan(d.x,-d.z),asin(d.y))*180.;
+        vec2 cell=floor(starUv),point=fract(starUv)-vec2(hash(cell),hash(cell+71.));
+        float stars=step(.985,hash(cell+19.))*(1.-smoothstep(.015,.10,length(point)))*smoothstep(.08,.2,d.y);
+        nightSky+=vec3(stars*.85);
+        gl_FragColor=vec4(mix(day,nightSky,night),1.);
         ${colorOutput}}`
     }));
   sky.renderOrder=-10;scene.add(sky);
@@ -69,7 +94,7 @@ async function main(){
   const cloudGeometry=new THREE.CylinderGeometry(600,600,1400,256,32,true);
   cloudGeometry.translate(0,500,0);
   const clouds=new THREE.Mesh(cloudGeometry,new THREE.ShaderMaterial({
-    uniforms:{map:{value:cloudMap},referenceProjection:{value:projector}},
+    uniforms:{map:{value:cloudMap},nightMap:{value:nightClouds},night,referenceProjection:{value:projector}},
     side:THREE.BackSide,transparent:true,depthWrite:false,
     vertexShader:`uniform mat4 referenceProjection; varying vec4 projected;
       void main(){
@@ -79,10 +104,12 @@ async function main(){
         projected=referenceProjection*vec4(samplePoint,1.);
         gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);
       }`,
-    fragmentShader:`uniform sampler2D map; varying vec4 projected;
+    fragmentShader:`uniform sampler2D map,nightMap;uniform float night; varying vec4 projected;
       void main(){vec2 p=projected.xy/projected.w*.5+.5;
         p.y=1.-(1.-p.y)/.91;
         vec4 c=texture2D(map,clamp(p,vec2(0.),vec2(1.)));
+        vec4 n=texture2D(nightMap,clamp(p,vec2(0.),vec2(1.)));
+        float alpha=mix(c.a,n.a,night);c=vec4(mix(c.rgb*c.a,n.rgb*n.a,night)/max(alpha,.001),alpha);
         if(c.a<.01)discard;gl_FragColor=c;${colorOutput}}`
   }));
   clouds.renderOrder=-5;scene.add(clouds);
@@ -107,15 +134,21 @@ async function main(){
     }
     geometry.computeBoundingSphere();return geometry;
   }
-  function stillLayer(map,z,order,name,scaleY=1,offsetY=0){
-    const mesh=new THREE.Mesh(layerGeometry(z,scaleY,offsetY),new THREE.MeshBasicMaterial({
-      map,transparent:true,depthWrite:false,depthTest:false,side:THREE.DoubleSide
+  function stillLayer(map,nightMap,z,order,name,scaleY=1,offsetY=0){
+    const mesh=new THREE.Mesh(layerGeometry(z,scaleY,offsetY),new THREE.ShaderMaterial({
+      uniforms:{map:{value:map},nightMap:{value:nightMap},night},
+      vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+      fragmentShader:`varying vec2 vUv;uniform sampler2D map,nightMap;uniform float night;
+        void main(){vec4 a=texture2D(map,vUv),b=texture2D(nightMap,vUv);
+          float alpha=mix(a.a,b.a,night);if(alpha<.01)discard;
+          gl_FragColor=vec4(mix(a.rgb*a.a,b.rgb*b.a,night)/max(alpha,.001),alpha);${colorOutput}}`,
+      transparent:true,depthWrite:false,depthTest:false,side:THREE.DoubleSide
     }));
     mesh.name=name;mesh.renderOrder=order;scene.add(mesh);return mesh;
   }
   // Generated layers retain their original full-canvas registration.
-  stillLayer(terrainMap,-120,1,'Regenerated distant hills');
-  stillLayer(fieldMap,-68,2,'Tan field — parallax only, no wind',.68,.045);
+  stillLayer(terrainMap,nightTerrain,-120,1,'Regenerated distant hills');
+  stillLayer(fieldMap,nightField,-68,2,'Tan field — parallax only, no wind',.68,.045);
 
   const grass=new THREE.Group();
   const frontGrass=new THREE.Group();
@@ -128,6 +161,7 @@ async function main(){
     const a=onDepth(0,0,layer.z),b=onDepth(1,0,layer.z);
     const mesh=new THREE.Mesh(layerGeometry(layer.z),new THREE.ShaderMaterial({
       uniforms:{frameA:{value:grassA},frameB:{value:grassB},uTime:time,
+        nightA:{value:nightGrassA},nightB:{value:nightGrassB},night,
         top:{value:layer.top},phase:{value:layer.phase},wind:{value:layer.wind},
         worldWidth:{value:b.x-a.x}},
       transparent:true,depthWrite:false,depthTest:false,side:THREE.DoubleSide,
@@ -137,13 +171,17 @@ async function main(){
           p.x+=wave*worldWidth*wind*.45;
           gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);
         }`,
-      fragmentShader:`varying vec2 vUv;uniform sampler2D frameA,frameB;
+      fragmentShader:`varying vec2 vUv;uniform sampler2D frameA,frameB,nightA,nightB;uniform float night;
         uniform float uTime,top,phase,wind;
         void main(){
           vec2 p=vec2(1.-abs(mod(vUv.x,2.)-1.),clamp(vUv.y,.001,.999));
           p.x+=wind*sin(uTime*1.1+p.x*71.+p.y*95.+phase);
           float blend=.5-.5*cos(uTime*.75+phase+p.x*.7);
           vec4 a=texture2D(frameA,p),b=texture2D(frameB,p);
+          vec4 na=texture2D(nightA,p),nb=texture2D(nightB,p);
+          float aa=mix(a.a,na.a,night),ba=mix(b.a,nb.a,night);
+          a=vec4(mix(a.rgb*a.a,na.rgb*na.a,night)/max(aa,.001),aa);
+          b=vec4(mix(b.rgb*b.a,nb.rgb*nb.a,night)/max(ba,.001),ba);
           float alpha=mix(a.a,b.a,blend);
           vec3 rgb=mix(a.rgb*a.a,b.rgb*b.a,blend)/max(alpha,.001);
           float boundary=top-(top>.23?.045*smoothstep(0.,1.,p.x):0.)+.002*sin(p.x*31.)+.0018*sin(p.x*241.);
@@ -186,14 +224,15 @@ async function main(){
   tuftGeometry.setAttribute('color',new THREE.Float32BufferAttribute(tuftColors,3));
   tuftGeometry.setAttribute('uv',new THREE.Float32BufferAttribute(tuftUvs,2));
   const tufts=new THREE.Mesh(tuftGeometry,new THREE.ShaderMaterial({
-    uniforms:{uTime:time},vertexColors:true,side:THREE.DoubleSide,
+    uniforms:{uTime:time,night},vertexColors:true,side:THREE.DoubleSide,
     transparent:true,depthTest:false,depthWrite:false,
     vertexShader:`varying vec3 bladeColor;uniform float uTime;
       void main(){bladeColor=color;vec3 p=position;
         p.x+=.075*sin(uTime*1.1+uv.x)*uv.y*uv.y;
         gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);}`,
-    fragmentShader:`varying vec3 bladeColor;
-      void main(){gl_FragColor=vec4(bladeColor,1.);${colorOutput}}`
+    fragmentShader:`varying vec3 bladeColor;uniform float night;
+      void main(){float l=dot(bladeColor,vec3(.2126,.7152,.0722));
+        gl_FragColor=vec4(mix(bladeColor,vec3(.18,.25,.65)*l,night),1.);${colorOutput}}`
   }));
   tufts.name='Grass tufts at logo base';tufts.renderOrder=6;
   foregroundScene.add(tufts);
@@ -201,7 +240,8 @@ async function main(){
   for(const world of [scene,foregroundScene])world.traverse(object=>{
     if(object.material)object.material.toneMapped=false;
   });
-  const sculpture=await createChromeLogo(renderer,{cloudMap,grassMap:grassA});
+  const sculpture=await createChromeLogo(renderer,{cloudMap,grassMap:grassA,nightClouds,nightGrass:nightGrassA,night});
+  const groundDay=new THREE.Color('#687d43'),groundNight=new THREE.Color('#15162f');
 
   function resize(){
     camera.aspect=host.clientWidth/host.clientHeight;
@@ -229,6 +269,9 @@ async function main(){
   const ease=t=>t*t*t*(t*(t*6.-15.)+10.);
   function render(now){
     const dt=previous===null?0:Math.min((now-previous)/1000,.05);previous=now;
+    night.value=reduced.matches?nightTarget:THREE.MathUtils.lerp(night.value,nightTarget,1-Math.exp(-2.4*dt));
+    ground.material.color.copy(groundDay).lerp(groundNight,night.value);
+    sculpture.setNight(night.value);
     introElapsed=introSample??(introElapsed+dt);
     const skipIntro=reduced.matches||((debug||still!==null)&&introSample===null);
     const pan=skipIntro?1:THREE.MathUtils.clamp((introElapsed-.65)/3.4,0,1);
@@ -268,6 +311,7 @@ main().catch(error=>{
   status.textContent='The scene did not load. Reload the page with WebGL enabled.';status.hidden=false;
   document.querySelector('.factory-hud').style.opacity='1';
 });
+
 
 
 

@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.js';
 import {createLogoGeometry} from './logo-geometry.js';
 
-export async function createChromeLogo(renderer,{cloudMap,grassMap}) {
+export async function createChromeLogo(renderer,{cloudMap,grassMap,nightClouds,nightGrass,night}) {
   const response=await fetch('./assets/logo-contours.json');
   if(!response.ok)throw new Error('Logo outline did not load');
   const contours=await response.json();
@@ -13,9 +13,9 @@ export async function createChromeLogo(renderer,{cloudMap,grassMap}) {
   const reflectionScene=new THREE.Scene();
   const environmentShell=new THREE.Mesh(new THREE.SphereGeometry(100,64,32),new THREE.ShaderMaterial({
     side:THREE.BackSide,
-    uniforms:{clouds:{value:cloudMap},meadow:{value:grassMap}},
+    uniforms:{clouds:{value:cloudMap},meadow:{value:grassMap},nightMode:{value:0}},
     vertexShader:`varying vec3 direction;void main(){direction=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-    fragmentShader:`varying vec3 direction;uniform sampler2D clouds,meadow;
+    fragmentShader:`varying vec3 direction;uniform sampler2D clouds,meadow;uniform float nightMode;
       void main(){
         vec3 d=normalize(direction);
         float west=1.-smoothstep(-.85,.55,d.x);
@@ -35,12 +35,21 @@ export async function createChromeLogo(renderer,{cloudMap,grassMap}) {
         float sun=pow(max(0.,dot(d,sunDirection)),180.);
         radiance+=vec3(18.,10.,4.)*sun;
         radiance+=vec3(.25,.45,.95)*pow(max(0.,dot(d,normalize(vec3(.8,.3,.4)))),24.);
+        vec3 nocturne=mix(vec3(.008,.012,.035),vec3(.18,.12,.5),smoothstep(-.2,.5,d.y));
+        nocturne=mix(nocturne,cloudPaint.rgb*.9,cloudPaint.a*.7*step(0.,d.y));
+        nocturne+=vec3(.5,1.8,2.6)*pow(max(0.,dot(d,sunDirection)),55.);
+        nocturne+=vec3(.7,.2,1.2)*pow(max(0.,dot(d,normalize(vec3(.8,.3,.4)))),20.);
+        radiance=mix(radiance,nocturne,nightMode);
         gl_FragColor=vec4(radiance,1.);
       }`
   }));
   reflectionScene.add(environmentShell);
   const pmrem=new THREE.PMREMGenerator(renderer);
   const environment=pmrem.fromScene(reflectionScene,.025,.1,200);
+  environmentShell.material.uniforms.nightMode.value=1;
+  environmentShell.material.uniforms.clouds.value=nightClouds;
+  environmentShell.material.uniforms.meadow.value=nightGrass;
+  const nightEnvironment=pmrem.fromScene(reflectionScene,.025,.1,200);
   pmrem.dispose();environmentShell.geometry.dispose();environmentShell.material.dispose();
 
   const chrome=new THREE.MeshPhysicalMaterial({
@@ -50,6 +59,14 @@ export async function createChromeLogo(renderer,{cloudMap,grassMap}) {
     clippingPlanes:[new THREE.Plane(new THREE.Vector3(0,1,0),.4)]
   });
   const logo=new THREE.Mesh(geometry,chrome);
+  chrome.onBeforeCompile=shader=>{
+    shader.uniforms.night=night;
+    shader.uniforms.nightEnvironment={value:nightEnvironment.texture};
+    const chunk=THREE.ShaderChunk.envmap_physical_pars_fragment.replace(
+      /textureCubeUV\( envMap, ([^,]+), ([^)]+) \)/g,
+      'mix(textureCubeUV( envMap, $1, $2 ),textureCubeUV( nightEnvironment, $1, $2 ),night)');
+    shader.fragmentShader='uniform float night;uniform sampler2D nightEnvironment;\n'+shader.fragmentShader.replace('#include <envmap_physical_pars_fragment>',chunk);
+  };
   logo.name='Chrome company logo — eight openings';
   logo.position.set(0,5.35,-30);
   logo.rotation.set(.015,-.23,-.025);
@@ -63,7 +80,15 @@ export async function createChromeLogo(renderer,{cloudMap,grassMap}) {
   rim.position.set(-18,14,-50);rim.target.position.copy(logo.position);
   scene.add(sun,sun.target,blueFill,blueFill.target,rim,rim.target);
 
-  return {scene,logo,environment};
+  const dayColors=[sun.color.clone(),blueFill.color.clone(),rim.color.clone()];
+  const nightColors=['#99c8ff','#9561ef','#56e5ed'].map(c=>new THREE.Color(c));
+  function setNight(amount){
+    [sun,blueFill,rim].forEach((light,i)=>light.color.copy(dayColors[i]).lerp(nightColors[i],amount));
+    sun.intensity=THREE.MathUtils.lerp(3.6,2.3,amount);
+    blueFill.intensity=THREE.MathUtils.lerp(1.9,1.4,amount);
+    rim.intensity=THREE.MathUtils.lerp(4.5,3.2,amount);
+  }
+  return {scene,logo,environment,nightEnvironment,setNight};
 }
 
 

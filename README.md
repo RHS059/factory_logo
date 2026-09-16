@@ -62,3 +62,9 @@ Small independent grass tufts surround the logo base. Tapered blades use the mea
 On load, the view starts to the left with only the landscape visible. After 0.65 seconds, an off-axis camera pan moves to the neutral composition over 3.4 seconds. The logo enters the view during this pan. The text card then fades in over 1.1 seconds. Mirrored side extensions keep the scene filled. Pointer movement starts after the pan.
 
 The sequence pauses when the tab is hidden. Reduced motion, debug mode, and fixed-time snapshots show the neutral view immediately. For an opening snapshot, add ?intro=0&t=0; intro gives seconds into the sequence.
+
+## Day and night
+
+Use the white moon button at the upper right to enter night mode. It becomes a white sun button that returns to day mode. All five painted layers crossfade to separate generated night images. The sky gains white stars; the chrome reflections, logo lights, ground, and small grass tufts fade to matching cool colors. Rapid clicks reverse the fade smoothly. Reduced motion switches immediately.
+
+Night assets and exact generation prompts: [assets/NIGHT-GENERATION.md](assets/NIGHT-GENERATION.md).
