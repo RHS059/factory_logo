@@ -45,7 +45,7 @@ See assets/GENERATION.md for the generation tool, exact prompts, and alignment n
 
 ## Text panel
 
-The Factory text panel stays fixed on the screen and does not take part in the landscape parallax. Its grey background has 25% opacity. Its text and layout come from the supplied HTML mockup. Archivo loads from Google Fonts, with Helvetica and Arial as fallbacks. The panel stacks on narrow screens and does not intercept pointer movement.
+The Factory text panel stays fixed on the screen and does not take part in the landscape parallax. Its dark charcoal background has 25% opacity. Its text and layout come from the supplied HTML mockup. Archivo loads from Google Fonts, with Helvetica and Arial as fallbacks. The panel stacks on narrow screens and does not intercept pointer movement.
 
 ## Chrome logo
 

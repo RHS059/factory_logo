@@ -23,7 +23,7 @@ noscript img { width: 100%; height: 100%; object-fit: cover; }
   justify-content: space-between;
   gap: 6%;
   padding: clamp(18px, 2vw, 38px);
-  background: rgba(128, 128, 128, 0.25);
+  background: rgba(20, 20, 20, 0.25);
   border: 1px solid rgba(235, 242, 244, 0.24);
   border-radius: 3px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 8px 30px rgba(0,0,0,.1);
@@ -81,3 +81,5 @@ noscript img { width: 100%; height: 100%; object-fit: cover; }
   .factory-hud { bottom: 12px; padding: 12px 18px; }
   .factory-brand h1 { font-size: 32px; }
 }
+
+
