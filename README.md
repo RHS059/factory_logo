@@ -46,3 +46,11 @@ See assets/GENERATION.md for the generation tool, exact prompts, and alignment n
 ## Text panel
 
 The Factory text panel stays fixed on the screen and does not take part in the landscape parallax. Its grey background has 25% opacity. Its text and layout come from the supplied HTML mockup. Archivo loads from Google Fonts, with Helvetica and Arial as fallbacks. The panel stacks on narrow screens and does not intercept pointer movement.
+
+## Chrome logo
+
+The supplied logo outline forms a beveled 3D mesh with eight openings. A shallow curved face gives the chrome varied reflections. The sculpture sits in front of the tan field and behind the near grass. A ground clipping plane hides the base below ground level.
+
+Warm sunset light, cool blue fill light, and reflections affect only the logo. The painted landscape keeps its original colors. The text stays fixed on the screen around the sculpture.
+
+Download assets/factory-logo.glb for the standalone model. The site builds the same geometry from assets/logo-contours.json through logo-geometry.js.

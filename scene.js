@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.js';
+import {createChromeLogo} from './logo.js';
 
 const host=document.querySelector('#landscape');
 const status=document.querySelector('#status');
@@ -18,10 +19,15 @@ async function main(){
   const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'low-power'});
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));
   renderer.outputColorSpace=THREE.SRGBColorSpace;
+  renderer.autoClear=false;
+  renderer.localClippingEnabled=true;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1;
   renderer.domElement.setAttribute('role','img');
   renderer.domElement.setAttribute('aria-label',host.getAttribute('aria-label'));
   host.append(renderer.domElement);
   const scene=new THREE.Scene();
+  const foregroundScene=new THREE.Scene();
   const camera=new THREE.PerspectiveCamera(48,1376/768,.1,1600);
   camera.position.set(0,4,10);
   camera.lookAt(0,24,-90);
@@ -106,6 +112,7 @@ async function main(){
   stillLayer(fieldMap,-68,2,'Tan field — parallax only, no wind',.68,.045);
 
   const grass=new THREE.Group();
+  const frontGrass=new THREE.Group();
   const layers=[
     {z:-36,top:.25,phase:0,wind:.0012},
     {z:-18,top:.18,phase:.7,wind:.0019},
@@ -138,9 +145,16 @@ async function main(){
           if(alpha<.01)discard;gl_FragColor=vec4(rgb,alpha);${colorOutput}
         }`
     }));
-    mesh.renderOrder=3+i;mesh.name='Registered wind layer '+(i+1);grass.add(mesh);
+    mesh.renderOrder=3+i;mesh.name='Registered wind layer '+(i+1);
+    (i===0?grass:frontGrass).add(mesh);
   });
   scene.add(grass);
+  foregroundScene.add(frontGrass);
+  // Keep painted colors unchanged. Only the metal uses physical lighting.
+  for(const world of [scene,foregroundScene])world.traverse(object=>{
+    if(object.material)object.material.toneMapped=false;
+  });
+  const sculpture=await createChromeLogo(renderer,{cloudMap,grassMap:grassA});
 
   function resize(){
     camera.aspect=host.clientWidth/host.clientHeight;
@@ -169,11 +183,17 @@ async function main(){
     const dt=previous===null?0:Math.min((now-previous)/1000,.05);previous=now;
     if(state.animate)elapsed+=dt;time.value=still??elapsed;
     clouds.rotation.y=time.value*.001;
-    clouds.visible=state.clouds;grass.visible=state.grass;
+    clouds.visible=state.clouds;grass.visible=frontGrass.visible=state.grass;
     const follow=1.-Math.exp(-5.*dt);
     camera.position.x=THREE.MathUtils.lerp(camera.position.x,debug?state.offset:(reduced.matches?0:pointer.x*.32),follow);
     camera.position.y=THREE.MathUtils.lerp(camera.position.y,4+(debug||reduced.matches?0:pointer.y*.14),follow);
+    renderer.clear();
     renderer.render(scene,camera);
+    // The logo stands after the distant field but before the near grass.
+    renderer.clearDepth();
+    renderer.render(sculpture.scene,camera);
+    renderer.clearDepth();
+    renderer.render(foregroundScene,camera);
     if(debug&&now-lastStats>300){
       document.querySelector('#stats').textContent='Time '+time.value.toFixed(1)+'s · '+renderer.info.render.calls+' draws · tan field: no wind';
       lastStats=now;
@@ -191,3 +211,4 @@ main().catch(error=>{
   host.querySelector('canvas')?.remove();
   status.textContent='The scene did not load. Reload the page with WebGL enabled.';status.hidden=false;
 });
+
