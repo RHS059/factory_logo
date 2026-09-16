@@ -1,26 +1,44 @@
 # Living Meadow
 
-A static Three.js meadow with layered, animated grass and transparent rotating clouds.
+A Three.js landscape made from separate image layers. The original painting controls the layout.
 
-## View and deploy
+## Page and deployment
 
 Site: https://rhs059.github.io/factory_logo/
 
-GitHub Actions deploys every push to main using .github/workflows/deploy-pages.yml. The workflow also supports manual dispatch. The entry point is index.html. No build or external CDN is required; Three.js 0.180.0 is bundled with its MIT license.
+Every push to main starts the GitHub Pages workflow. You can also start the workflow manually. The entry point is index.html. Three.js 0.180.0 is included in vendor with its MIT license. No build or external service is necessary.
 
-For local preview, serve the repository over HTTP (for example, python -m http.server 8000).
+To view the site locally, use an HTTP server in this directory. For example: python -m http.server 8000.
 
-## Layers and movement
+## Image layers
 
-- A stationary clear-sky enclosure sits behind transparent generated clouds.
-- Two cloud cylinders rotate independently so the clouds drift right to left. The main bank is framed to show the generated alpha silhouette. Mirrored wrapping makes the panorama continuous.
-- The source painting is used only for the distant terrain silhouette and the loading/error fallback.
-- All meadow grass uses grass-a.png and grass-b.png. There is no original painted grass underlay. The flat ground blends these generated frames, and 22 staggered depth groups add upright grass patches with independently phased tip bending.
-- Moving the mouse beyond a central dead zone smoothly translates the camera. Travel is capped at 0.45 world units horizontally and 0.2 vertically. Camera orientation stays fixed. Leaving the scene recenters the view.
-- Reduced-motion preferences disable automatic motion and mouse parallax. Rendering pauses when the tab is hidden.
+The built-in image generator made new layers from the original painting:
 
-## Debugging
+| Layer | Asset | Movement |
+| --- | --- | --- |
+| Clouds | assets/clouds-v3.png | Slow rotation around a cylinder |
+| Hills | assets/terrain-v3.png | Camera parallax only |
+| Tan field | assets/far-field-v3.png | Camera parallax only; no wind |
+| Green grass | assets/meadow-a-v3.png and assets/meadow-b-v3.png | Wind frames and camera parallax |
 
-Add ?debug for layer toggles, an animation toggle, time/draw counts, and a camera-X depth slider. Debug mode overrides mouse movement. Add ?t=0 or ?t=2 for fixed animation snapshots.
+Each asset uses the full reference canvas. Transparent areas keep the layer positions. The hill ridge, tan field, and diagonal grass shadows stay near their original locations. Small placement corrections align the generated field with the other layers.
 
-The generated assets and exact prompts are recorded in assets/GENERATION.md. This is a painted 2.5D scene intended for this bounded viewing area, rather than free-camera exploration.
+The green meadow is separated into three overlapping depth layers. Each layer has its own wind phase. The tan field has no wind animation. A flat ground plane closes small gaps. It has no painted grass texture.
+
+The cloud texture is projected onto the front of a cylindrical shell from the reference camera. This preserves its shape instead of stretching the texture across the height of the cylinder. The shell uses mirrored sections for a continuous wrap. A separate clear-sky enclosure remains stationary.
+
+The original source.png is retained as the reference and the loading/error fallback. It is not used as an active grass or hill texture.
+
+## Camera and controls
+
+The view direction stays fixed. Move the pointer beyond the center dead zone to move the camera a small distance. Travel is limited to 0.32 world units horizontally and 0.14 vertically. The camera returns to center when the pointer leaves.
+
+Reduced-motion preferences stop wind, cloud motion, and mouse parallax. Rendering stops while the tab is hidden.
+
+Add ?debug for layer toggles, animation control, time, and a camera-X slider. Debug mode overrides mouse movement. Add ?t=0 or ?t=4 for fixed wind and cloud times.
+
+This is a painted 2.5D scene for bounded camera movement. It is not a free-camera world.
+
+## Asset record
+
+See assets/GENERATION.md for the generation tool, exact prompts, and alignment notes. The current scene uses five regenerated image assets.
