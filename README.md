@@ -42,3 +42,7 @@ This is a painted 2.5D scene for bounded camera movement. It is not a free-camer
 ## Asset record
 
 See assets/GENERATION.md for the generation tool, exact prompts, and alignment notes. The current scene uses five regenerated image assets.
+
+## Text panel
+
+The Factory text panel stays fixed on the screen and does not take part in the landscape parallax. Its grey background has 25% opacity. Its text and layout come from the supplied HTML mockup. Archivo loads from Google Fonts, with Helvetica and Arial as fallbacks. The panel stacks on narrow screens and does not intercept pointer movement.

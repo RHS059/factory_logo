@@ -5,14 +5,33 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#233e53">
   <meta name="description" content="A living painted meadow. A fixed view through wind-stirred grass toward slowly drifting clouds.">
-  <title>Living Meadow</title>
+  <title>Factory — Living Meadow</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./style.css?v=4">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
 </head>
 <body>
   <main id="landscape" aria-label="Painted meadow with slowly drifting clouds and grass moving in the wind">
     <p id="status" role="status">Opening the meadow…</p>
   </main>
+  <section class="factory-hud" aria-label="Factory fundraising">
+    <div class="factory-brand">
+      <p class="hud-label">BLACKSTONE</p>
+      <h1>FACTORY</h1>
+    </div>
+    <dl class="factory-metrics">
+      <div>
+        <dt class="hud-label">FUNDRAISED</dt>
+        <dd>$200M</dd>
+      </div>
+      <div>
+        <dt class="hud-label">VALUATION</dt>
+        <dd>$5B</dd>
+      </div>
+    </dl>
+  </section>
   <aside id="debug" hidden>
     <strong>Scene study</strong>
     <label><input id="motion" type="checkbox" checked> Animate</label>
