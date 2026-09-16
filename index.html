@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#233e53">
+  <meta name="description" content="A living painted meadow. A fixed view through wind-stirred grass toward slowly drifting clouds.">
+  <title>Living Meadow</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main id="landscape" aria-label="Painted meadow with slowly drifting clouds and grass moving in the wind">
+    <p id="status" role="status">Opening the meadow…</p>
+  </main>
+  <aside id="debug" hidden>
+    <strong>Scene study</strong>
+    <label><input id="motion" type="checkbox" checked> Animate</label>
+    <label><input id="clouds" type="checkbox" checked> Clouds</label>
+    <label><input id="grass" type="checkbox" checked> Grass layers</label>
+    <label>Depth check <input id="offset" type="range" min="-2" max="2" step="0.05" value="0"></label>
+    <output id="stats"></output>
+  </aside>
+  <noscript>This landscape needs JavaScript. <img src="./assets/source.png" alt="Painted grassy plain beneath towering golden and blue clouds"></noscript>
+  <script type="module" src="./scene.js"></script>
+</body>
+</html>
